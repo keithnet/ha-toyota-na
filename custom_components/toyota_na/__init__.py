@@ -8,6 +8,7 @@ from toyota_na.client import ToyotaOneClient
 
 # Patch client code
 from .patch_client import (
+    get_user_vehicle_list,
     get_electric_realtime_status,
     get_electric_status,
     api_request,
@@ -25,6 +26,7 @@ from .patch_client import (
     graphql_confirm_subscription,
     graphql_refresh_status,
 )
+ToyotaOneClient.get_user_vehicle_list = get_user_vehicle_list
 ToyotaOneClient.get_electric_realtime_status = get_electric_realtime_status
 ToyotaOneClient.get_electric_status = get_electric_status
 ToyotaOneClient.api_request = api_request
@@ -66,9 +68,7 @@ toyota_na.vehicle.vehicle_generations.seventeen_cy.SeventeenCYToyotaVehicle = Se
 from toyota_na.exceptions import AuthError, LoginError
 from toyota_na.vehicle.base_vehicle import RemoteRequestCommand, ToyotaVehicle
 
-#Patch get_vehicles
 from .patch_vehicle import get_vehicles
-#from toyota_na.vehicle.vehicle import get_vehicles
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -79,6 +79,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .websocket_handler import ToyotaWebSocketHandler
 
 from .const import (
+    BRANDS,
+    BRAND_TOYOTA,
     COMMAND_MAP,
     DOMAIN,
     ENGINE_START,
@@ -95,6 +97,24 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["binary_sensor", "device_tracker", "lock", "sensor"]
 
+
+def _configure_auth_for_brand(brand: str):
+    """Set ForgeRock auth URLs based on brand.
+
+    Toyota uses login.toyotadriverslogin.com, Subaru uses
+    login.subarudriverslogin.com. All other OAuth parameters
+    (client_id, scope, redirect_uri, realm) are identical.
+
+    NOTE: This mutates class-level attributes on ToyotaOneAuth,
+    so only one brand's auth URLs are active at a time.
+    """
+    brand_config = BRANDS.get(brand, BRANDS[BRAND_TOYOTA])
+    auth_host = brand_config["auth_host"]
+    ToyotaOneAuth.ACCESS_TOKEN_URL = f"https://{auth_host}/oauth2/realms/root/realms/tmna-native/access_token"
+    ToyotaOneAuth.AUTHORIZE_URL = f"https://{auth_host}/oauth2/realms/root/realms/tmna-native/authorize"
+    ToyotaOneAuth.AUTHENTICATE_URL = f"https://{auth_host}/json/realms/root/realms/tmna-native/authenticate"
+
+
 async def async_setup(hass: HomeAssistant, _processed_config) -> bool:
     @service.verify_domain_control(hass, DOMAIN)
     async def async_service_handle(service_call: ServiceCall) -> None:
@@ -108,8 +128,6 @@ async def async_setup(hass: HomeAssistant, _processed_config) -> bool:
             _LOGGER.warning("Device does not exist")
             return
 
-        # There is currently not a case with this integration where
-        # the device will have more or less than one config entry
         if len(device.config_entries) == 0:
             _LOGGER.warning("Device missing config entry")
             return
@@ -138,8 +156,6 @@ async def async_setup(hass: HomeAssistant, _processed_config) -> bool:
                 for vehicle in coordinator.data:
                     if vehicle.vin == vin and remote_action.upper() == "REFRESH" and vehicle.subscribed:
                         await vehicle.poll_vehicle_refresh()
-                        # TODO: This works great and prevents us from unnecessarily hitting Toyota. But we can and should
-                        # probably do stuff like this in the library where we can better control which APIs we hit to refresh our in-memory data.
                         coordinator.async_set_updated_data(coordinator.data)
                         await asyncio.sleep(10)
                         await coordinator.async_request_refresh()
@@ -164,12 +180,24 @@ async def async_setup(hass: HomeAssistant, _processed_config) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {})
 
+    # Determine brand (defaults to Toyota for existing config entries)
+    brand = entry.data.get("brand", BRAND_TOYOTA)
+    brand_config = BRANDS.get(brand, BRANDS[BRAND_TOYOTA])
+
+    # Configure ForgeRock auth URLs for this brand
+    _configure_auth_for_brand(brand)
+
     client = ToyotaOneClient(
         ToyotaOneAuth(
             initial_tokens=entry.data["tokens"],
             callback=lambda tokens: update_tokens(tokens, hass, entry),
         )
     )
+
+    # Store brand on client so patch_client functions can access it
+    client._brand = brand
+    client._brand_config = brand_config
+
     try:
         client.auth.set_tokens(entry.data["tokens"])
         await client.auth.check_tokens()
@@ -248,7 +276,6 @@ async def update_vehicles_status(hass: HomeAssistant, client: ToyotaOneClient, e
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
-    # Stop WebSocket handler
     entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
     ws_handler = entry_data.get("ws_handler")
     if ws_handler:
