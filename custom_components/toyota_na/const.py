@@ -20,27 +20,6 @@ REFRESH = "refresh"
 UPDATE_INTERVAL = 600
 REFRESH_STATUS_INTERVAL = 2 * 3600
 
-# --- Brand configuration ---
-BRAND_TOYOTA = "T"
-BRAND_SUBARU = "S"
-
-BRANDS = {
-    BRAND_TOYOTA: {
-        "name": "Toyota",
-        "auth_host": "login.toyotadriverslogin.com",
-        "user_agent": "ToyotaOneApp/3.10.0 (com.toyota.oneapp; build:3100; Android 14) okhttp/4.12.0",
-        "manufacturer": "Toyota Motor North America",
-        "requires_account_bootstrap": False,
-    },
-    BRAND_SUBARU: {
-        "name": "Subaru",
-        "auth_host": "login.subarudriverslogin.com",
-        "user_agent": "SubaruConnect/2.3.1 (com.subaru.oneapp; build:48; Android 14) okhttp/4.12.0",
-        "manufacturer": "Subaru of America",
-        "requires_account_bootstrap": True,
-    },
-}
-
 COMMAND_MAP = {
     DOOR_LOCK: RemoteRequestCommand.DoorLock,
     DOOR_UNLOCK: RemoteRequestCommand.DoorUnlock,
