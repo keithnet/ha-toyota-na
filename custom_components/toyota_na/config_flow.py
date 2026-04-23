@@ -12,7 +12,8 @@ ToyotaOneAuth.authorize = authorize
 ToyotaOneAuth.login = login
 import json
 
-from .const import DOMAIN, BRANDS, BRAND_TOYOTA, BRAND_SUBARU
+from .const import DOMAIN
+from .brands import BRANDS, BRAND_TOYOTA, BRAND_SUBARU
 
 _LOGGER = logging.getLogger(__name__)
 
