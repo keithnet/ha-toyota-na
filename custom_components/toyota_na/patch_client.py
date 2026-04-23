@@ -3,7 +3,7 @@ import logging
 from urllib.parse import urljoin, urlencode
 import aiohttp
 
-from .const import BRANDS, BRAND_TOYOTA
+from .brands import BRANDS, BRAND_TOYOTA
 
 API_GATEWAY = "https://onecdn.telematicsct.com/oneapi/"
 GRAPHQL_ENDPOINT = "https://oa-api.telematicsct.com/graphql"
