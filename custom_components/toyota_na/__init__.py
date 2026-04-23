@@ -78,6 +78,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .websocket_handler import ToyotaWebSocketHandler
 
+from .brands import BRANDS, BRAND_TOYOTA
 from .const import (
     BRANDS,
     BRAND_TOYOTA,
