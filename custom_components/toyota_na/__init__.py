@@ -80,8 +80,6 @@ from .websocket_handler import ToyotaWebSocketHandler
 
 from .brands import BRANDS, BRAND_TOYOTA
 from .const import (
-    BRANDS,
-    BRAND_TOYOTA,
     COMMAND_MAP,
     DOMAIN,
     ENGINE_START,
